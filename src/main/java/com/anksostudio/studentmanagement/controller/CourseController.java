@@ -2,39 +2,49 @@ package com.anksostudio.studentmanagement.controller;
 
 
 import com.anksostudio.studentmanagement.dto.CourseDTO;
+import com.anksostudio.studentmanagement.exception.GlobalExceptionHandler;
 import com.anksostudio.studentmanagement.repository.CourseRepository;
 import com.anksostudio.studentmanagement.service.CourseService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
 @RequestMapping("/course")
 public class CourseController {
 
-    private final CourseRepository courseRepository;
-    private CourseService courseService;
+    private static final Logger log = LoggerFactory.getLogger(CourseController.class);
+    private final CourseService courseService;
 
-    CourseController(CourseService courseService, CourseRepository courseRepository){
+
+    CourseController(CourseService courseService ){
         this.courseService = courseService;
-        this.courseRepository = courseRepository;
     }
 
 
     @GetMapping("/new")
     public String showCreateCourse(Model model){
+        log.info("Get /course/new - showing create course page.");
         model.addAttribute("courseDto", new CourseDTO());
         return "add-course";
     }
 
     @GetMapping("/list")
-    public String listCourses(){
+    public String listCourses(@RequestParam(defaultValue = "0") int page,
+                              @RequestParam(defaultValue = "5") int size,
+                              Model model,
+                              @RequestParam(value = "message", required = false) String message) {
+
+        log.info("Get /course/list - showing course list page.");
+       Page<CourseDTO> courses = courseService.getCourses(page, size);
+        model.addAttribute("courses", courses);
+        model.addAttribute("message", message);
         return "courses";
     }
 
@@ -44,11 +54,14 @@ public class CourseController {
                                Model model,
                                RedirectAttributes redirectAttributes){
 
+        log.info("Post /course - create course request received.");
         if(bindingResult.hasErrors()){
+            log.error("Post /course - page return due to validation error.");
             return "add-course";
         }
 
         if(courseService.existsByCourseCode(courseDTO.getCourseCode())){
+            log.error("Post /course - Code must be unique.");
             bindingResult.rejectValue("courseCode", null,"Code must be unique");
             return "add-course";
         }
@@ -56,6 +69,8 @@ public class CourseController {
         courseService.createCourse(courseDTO);
         redirectAttributes.addAttribute("message","Course is created successfully");
 
-        return "/course/list";
+        log.info("Post /course - create course successfully created.");
+
+        return "redirect:/course/list";
     }
 }
